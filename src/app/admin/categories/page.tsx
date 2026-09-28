@@ -1,0 +1,770 @@
+"use client";
+
+import { useState, useRef } from "react";
+import AdminSidebar from "@/components/admin/AdminSidebar";
+import AdminHeader from "@/components/admin/AdminHeader";
+import AdminPageHeader from "@/components/admin/AdminPageHeader";
+import { useCategories } from "@/context/CategoriesContext";
+import type {
+  Category,
+  SubCategory,
+  ServiceVariant,
+} from "@/lib/categories";
+import {
+  Plus,
+  Trash2,
+  Edit2,
+  X,
+  CheckCircle2,
+  XCircle,
+  UploadCloud,
+  FolderTree,
+} from "lucide-react";
+
+const inputClass =
+  "w-full rounded-lg border border-gray-300 p-2.5 text-sm text-gray-900 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-white";
+
+/* ---------------- Image uploader ---------------- */
+
+function ImageUploader({
+  value,
+  onChange,
+  label = "Image",
+}: {
+  value: string;
+  onChange: (url: string) => void;
+  label?: string;
+}) {
+  const ref = useRef<HTMLInputElement>(null);
+
+  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) return alert("Only images");
+    if (f.size > 2 * 1024 * 1024) return alert("Max 2MB");
+    const r = new FileReader();
+    r.onload = () => onChange(r.result as string);
+    r.readAsDataURL(f);
+  };
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-700 mb-1">
+        {label}
+      </label>
+      <div className="flex items-center gap-3">
+        <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50">
+          <UploadCloud size={14} />
+          Upload
+          <input
+            ref={ref}
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            className="hidden"
+            onChange={pick}
+          />
+        </label>
+        {value && (
+          <>
+            <div className="h-10 w-10 overflow-hidden rounded border bg-gray-50">
+              <img
+                src={value}
+                alt="preview"
+                className="h-full w-full object-contain"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onChange("");
+                if (ref.current) ref.current.value = "";
+              }}
+              className="text-xs text-red-600 hover:underline"
+            >
+              Remove
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- Right-side Drawer ---------------- */
+
+function Drawer({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        className={`fixed inset-0 z-40 bg-black/40 transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+        onClick={onClose}
+      />
+
+      {/* Panel */}
+      <div
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-xl bg-white shadow-2xl transition-transform duration-300 ${
+          open ? "translate-x-0" : "translate-x-full"
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="h-[calc(100%-65px)] overflow-y-auto p-6">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ---------------- Page ---------------- */
+
+export default function AdminCategoriesPage() {
+  const {
+    categories,
+    loading,
+    addCategory,
+    updateCategory,
+    deleteCategory,
+    toggleActive,
+    addSubcategory,
+    updateSubcategory,
+    deleteSubcategory,
+  } = useCategories();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  /* Category drawer */
+  const [showCatDrawer, setShowCatDrawer] = useState(false);
+  const [editingCat, setEditingCat] = useState<Category | null>(null);
+  const [catForm, setCatForm] = useState({ name: "", slug: "", image: "" });
+
+  /* Subcategory drawer */
+  const [subDrawerFor, setSubDrawerFor] = useState<string | null>(null);
+  const [editingSub, setEditingSub] = useState<SubCategory | null>(null);
+  const [subForm, setSubForm] = useState({
+    name: "",
+    slug: "",
+    image: "",
+    description: "",
+    basePrice: 0,
+    duration: "",
+  });
+
+  /* Variants */
+  const [variants, setVariants] = useState<ServiceVariant[]>([]);
+
+  /* ---------------- Category handlers ---------------- */
+
+  const resetCatForm = () => {
+    setCatForm({ name: "", slug: "", image: "" });
+    setEditingCat(null);
+    setShowCatDrawer(false);
+  };
+
+  const handleCatSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!catForm.name || !catForm.slug) return;
+
+    if (editingCat) {
+      updateCategory(editingCat.id, catForm);
+    } else {
+      addCategory({
+        name: catForm.name,
+        slug: catForm.slug,
+        image: catForm.image,
+        active: true,
+        subcategories: [],
+      });
+    }
+    resetCatForm();
+  };
+
+  const startEditCat = (c: Category) => {
+    setEditingCat(c);
+    setCatForm({ name: c.name, slug: c.slug, image: c.image });
+    setShowCatDrawer(true);
+  };
+
+  /* ---------------- Subcategory handlers ---------------- */
+
+  const resetSubForm = () => {
+    setSubForm({
+      name: "",
+      slug: "",
+      image: "",
+      description: "",
+      basePrice: 0,
+      duration: "",
+    });
+    setVariants([]);
+    setEditingSub(null);
+    setSubDrawerFor(null);
+  };
+
+  const handleSubSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!subDrawerFor || !subForm.name || !subForm.slug) return;
+
+    const payload = {
+      name: subForm.name,
+      slug: subForm.slug,
+      image: subForm.image,
+      description: subForm.description,
+      basePrice: subForm.basePrice,
+      duration: subForm.duration,
+      variants: variants.filter((v) => v.name.trim() && v.price > 0),
+    };
+
+    if (editingSub) {
+      updateSubcategory(subDrawerFor, editingSub.id, payload);
+    } else {
+      addSubcategory(subDrawerFor, payload);
+    }
+    resetSubForm();
+  };
+
+  const startEditSub = (catId: string, s: SubCategory) => {
+    setSubDrawerFor(catId);
+    setEditingSub(s);
+    setSubForm({
+      name: s.name,
+      slug: s.slug,
+      image: s.image,
+      description: s.description ?? "",
+      basePrice: s.basePrice ?? 0,
+      duration: s.duration ?? "",
+    });
+    setVariants(s.variants ?? []);
+  };
+
+  /* ---------------- Variant handlers ---------------- */
+
+  const addVariant = () => {
+    setVariants((prev) => [
+      ...prev,
+      { id: Date.now().toString(), name: "", price: 0, description: "" },
+    ]);
+  };
+
+  const updateVariant = (id: string, patch: Partial<ServiceVariant>) => {
+    setVariants((prev) =>
+      prev.map((v) => (v.id === id ? { ...v, ...patch } : v))
+    );
+  };
+
+  const removeVariant = (id: string) => {
+    setVariants((prev) => prev.filter((v) => v.id !== id));
+  };
+
+  /* ---------------- Render ---------------- */
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 text-sm text-gray-500">
+        Loading categories…
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen bg-gray-50">
+      <AdminSidebar
+        mobileOpen={mobileMenuOpen}
+        onClose={() => setMobileMenuOpen(false)}
+      />
+
+      <div className="min-w-0 flex-1">
+        <AdminHeader onMenuClick={() => setMobileMenuOpen(true)} />
+
+        <main className="mx-auto max-w-[1600px] p-4 sm:p-6 lg:p-8">
+          <AdminPageHeader
+            title="Categories & Services"
+            description="Manage categories, services, pricing and options shown on the customer website."
+          />
+
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => {
+                resetCatForm();
+                setShowCatDrawer(true);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700"
+            >
+              <Plus size={16} /> Add Category
+            </button>
+          </div>
+
+          {/* ============ CATEGORY CARDS ============ */}
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {categories.map((cat) => (
+              <div
+                key={cat.id}
+                className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-indigo-50">
+                    {cat.image ? (
+                      <img
+                        src={cat.image}
+                        alt={cat.name}
+                        className="h-10 w-10 object-contain"
+                      />
+                    ) : (
+                      <FolderTree size={20} className="text-indigo-600" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <h3 className="font-semibold text-gray-900 truncate">
+                          {cat.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 font-mono truncate">
+                          /{cat.slug}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => toggleActive(cat.id)}
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+                          cat.active
+                            ? "bg-green-50 text-green-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {cat.active ? (
+                          <CheckCircle2 size={11} />
+                        ) : (
+                          <XCircle size={11} />
+                        )}
+                        {cat.active ? "Active" : "Hidden"}
+                      </button>
+                    </div>
+
+                    <p className="mt-2 text-xs text-gray-500">
+                      {cat.subcategories.length} service
+                      {cat.subcategories.length === 1 ? "" : "s"}
+                    </p>
+
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        onClick={() => startEditCat(cat)}
+                        className="inline-flex items-center gap-1 rounded-md border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        <Edit2 size={12} /> Edit
+                      </button>
+                      <button
+                        onClick={() => {
+                          resetSubForm();
+                          setSubDrawerFor(cat.id);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100"
+                      >
+                        <Plus size={12} /> Add Service
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (
+                            confirm(
+                              "Delete this category and all its services?"
+                            )
+                          ) {
+                            deleteCategory(cat.id);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                      >
+                        <Trash2 size={12} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Services list */}
+                {cat.subcategories.length > 0 && (
+                  <div className="mt-4 border-t pt-3">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-400 mb-2">
+                      Services
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                      {cat.subcategories.map((sub) => (
+                        <div
+                          key={sub.id}
+                          className="flex items-center justify-between gap-2 rounded-md bg-gray-50 px-2 py-1.5"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            {sub.image ? (
+                              <img
+                                src={sub.image}
+                                alt={sub.name}
+                                className="h-5 w-5 shrink-0 object-contain"
+                              />
+                            ) : (
+                              <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-semibold text-indigo-700">
+                                {sub.name.charAt(0)}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <span className="text-xs text-gray-700 truncate block">
+                                {sub.name}
+                              </span>
+                              {sub.basePrice > 0 && (
+                                <span className="text-[10px] text-gray-500">
+                                  ₹{sub.basePrice}
+                                  {sub.variants.length > 0 &&
+                                    ` · ${sub.variants.length} option${
+                                      sub.variants.length === 1 ? "" : "s"
+                                    }`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              onClick={() => startEditSub(cat.id, sub)}
+                              className="rounded p-1 text-gray-500 hover:bg-white hover:text-indigo-600"
+                              title="Edit"
+                            >
+                              <Edit2 size={12} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Delete "${sub.name}"?`)) {
+                                  deleteSubcategory(cat.id, sub.id);
+                                }
+                              }}
+                              className="rounded p-1 text-gray-500 hover:bg-white hover:text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {categories.length === 0 && (
+              <div className="col-span-full rounded-2xl border border-dashed border-gray-300 bg-white py-16 text-center">
+                <FolderTree size={32} className="mx-auto text-gray-400 mb-2" />
+                <p className="text-sm text-gray-500">
+                  No categories yet. Click &quot;Add Category&quot; to create one.
+                </p>
+              </div>
+            )}
+          </div>
+        </main>
+      </div>
+
+      {/* ================================================= */}
+      {/* CATEGORY DRAWER                                   */}
+      {/* ================================================= */}
+      <Drawer
+        open={showCatDrawer}
+        onClose={resetCatForm}
+        title={editingCat ? "Edit Category" : "Create Category"}
+      >
+        <form onSubmit={handleCatSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Category Name
+            </label>
+            <input
+              required
+              value={catForm.name}
+              onChange={(e) =>
+                setCatForm({
+                  ...catForm,
+                  name: e.target.value,
+                  slug:
+                    !editingCat && !catForm.slug
+                      ? e.target.value
+                          .toLowerCase()
+                          .replace(/\s+/g, "-")
+                          .replace(/[^a-z0-9-]/g, "")
+                      : catForm.slug,
+                })
+              }
+              placeholder="e.g., Cleaning"
+              className={inputClass}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Slug
+            </label>
+            <input
+              required
+              value={catForm.slug}
+              onChange={(e) =>
+                setCatForm({
+                  ...catForm,
+                  slug: e.target.value
+                    .toLowerCase()
+                    .replace(/\s+/g, "-")
+                    .replace(/[^a-z0-9-]/g, ""),
+                })
+              }
+              placeholder="cleaning"
+              className={`${inputClass} font-mono`}
+            />
+          </div>
+
+          <ImageUploader
+            label="Category Icon"
+            value={catForm.image}
+            onChange={(url) => setCatForm((f) => ({ ...f, image: url }))}
+          />
+
+          <div className="flex gap-3 pt-4 border-t">
+            <button
+              type="submit"
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              {editingCat ? "Update Category" : "Create Category"}
+            </button>
+            <button
+              type="button"
+              onClick={resetCatForm}
+              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Drawer>
+
+      {/* ================================================= */}
+      {/* SUBCATEGORY DRAWER                                */}
+      {/* ================================================= */}
+      <Drawer
+        open={!!subDrawerFor}
+        onClose={resetSubForm}
+        title={editingSub ? "Edit Service" : "Add Service"}
+      >
+        <form onSubmit={handleSubSubmit} className="space-y-5">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Service Name
+              </label>
+              <input
+                required
+                value={subForm.name}
+                onChange={(e) =>
+                  setSubForm({
+                    ...subForm,
+                    name: e.target.value,
+                    slug:
+                      !editingSub && !subForm.slug
+                        ? e.target.value
+                            .toLowerCase()
+                            .replace(/\s+/g, "-")
+                            .replace(/[^a-z0-9-]/g, "")
+                        : subForm.slug,
+                  })
+                }
+                placeholder="Bathroom Cleaning"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Slug
+              </label>
+              <input
+                required
+                value={subForm.slug}
+                onChange={(e) =>
+                  setSubForm({
+                    ...subForm,
+                    slug: e.target.value
+                      .toLowerCase()
+                      .replace(/\s+/g, "-")
+                      .replace(/[^a-z0-9-]/g, ""),
+                  })
+                }
+                placeholder="bathroom-cleaning"
+                className={`${inputClass} font-mono`}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Base Price (₹)
+              </label>
+              <input
+                type="number"
+                min={0}
+                value={subForm.basePrice}
+                onChange={(e) =>
+                  setSubForm({
+                    ...subForm,
+                    basePrice: Number(e.target.value),
+                  })
+                }
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Duration
+              </label>
+              <input
+                value={subForm.duration}
+                onChange={(e) =>
+                  setSubForm({ ...subForm, duration: e.target.value })
+                }
+                placeholder="e.g., 60 min"
+                className={inputClass}
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Description
+            </label>
+            <textarea
+              rows={3}
+              value={subForm.description}
+              onChange={(e) =>
+                setSubForm({
+                  ...subForm,
+                  description: e.target.value,
+                })
+              }
+              placeholder="Tiles, fixtures and surfaces"
+              className={`${inputClass} resize-none`}
+            />
+          </div>
+
+          <ImageUploader
+            label="Service Icon"
+            value={subForm.image}
+            onChange={(url) => setSubForm((f) => ({ ...f, image: url }))}
+          />
+
+          {/* ---------- VARIANTS ---------- */}
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900">
+                  Service Options / Variants
+                </h4>
+                <p className="text-xs text-gray-500">
+                  e.g., "1 Bathroom ₹499", "2 Bathrooms ₹799"
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={addVariant}
+                className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
+              >
+                <Plus size={12} /> Add Option
+              </button>
+            </div>
+
+            {variants.length === 0 && (
+              <p className="py-4 text-center text-xs text-gray-400">
+                No options yet. Add at least one.
+              </p>
+            )}
+
+            <div className="space-y-2">
+              {variants.map((v) => (
+                <div
+                  key={v.id}
+                  className="grid grid-cols-12 gap-2 rounded-lg border border-gray-200 bg-white p-2"
+                >
+                  <input
+                    className={`${inputClass} col-span-5`}
+                    placeholder="Option name (e.g., 1 Bathroom)"
+                    value={v.name}
+                    onChange={(e) =>
+                      updateVariant(v.id, { name: e.target.value })
+                    }
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    className={`${inputClass} col-span-3`}
+                    placeholder="Price"
+                    value={v.price}
+                    onChange={(e) =>
+                      updateVariant(v.id, {
+                        price: Number(e.target.value),
+                      })
+                    }
+                  />
+                  <input
+                    className={`${inputClass} col-span-3`}
+                    placeholder="Note (optional)"
+                    value={v.description ?? ""}
+                    onChange={(e) =>
+                      updateVariant(v.id, {
+                        description: e.target.value,
+                      })
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeVariant(v.id)}
+                    className="col-span-1 flex items-center justify-center rounded-md text-red-600 hover:bg-red-50"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex gap-3 pt-4 border-t">
+            <button
+              type="submit"
+              className="flex-1 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
+            >
+              {editingSub ? "Update Service" : "Add Service"}
+            </button>
+            <button
+              type="button"
+              onClick={resetSubForm}
+              className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </Drawer>
+    </div>
+  );
+}
