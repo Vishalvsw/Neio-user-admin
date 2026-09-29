@@ -1,259 +1,316 @@
-import { notFound } from "next/navigation";
-import type { Metadata } from "next";
+"use client";
+
+import { useState } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 
 import { LOCATIONS } from "@/lib/locations";
-import { SERVICES } from "@/lib/services";
-import { getServicesForArea } from "@/lib/serviceAvailability";
+import { SERVICE_REGISTRY } from "@/lib/serviceRegistry";
+import { useCategories } from "@/context/CategoriesContext";
 
-interface CityPageProps {
-  params: Promise<{
-    city: string;
-  }>;
+import SubcategoryLayout from "@/components/service/SubcategoryLayout";
+
+/* ============================================================
+   NOT FOUND SCREEN
+   ============================================================ */
+
+function NotFoundScreen({ title = "Service not found" }: { title?: string }) {
+  return (
+    <div className="mx-auto max-w-xl px-6 py-24 text-center">
+      <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+      <p className="mt-3 text-sm text-slate-500">
+        The page you&apos;re looking for doesn&apos;t exist or has moved.
+      </p>
+      <Link
+        href="/"
+        className="mt-6 inline-block rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+      >
+        Back to Home
+      </Link>
+    </div>
+  );
 }
 
-const BASE_URL = "https://neoi.in";
+/* ============================================================
+   CHIPS LAYOUT — same design language as SubcategoryLayout
+   ============================================================ */
 
-export async function generateStaticParams() {
-  return LOCATIONS.map((city) => ({
-    city: city.slug,
-  }));
-}
+function ChipsLayout({
+  city,
+  subcategoryData,
+}: {
+  city: string;
+  subcategoryData: any;
+}) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const sections = subcategoryData.sections ?? [];
+  const activeSection = sections[activeIdx];
 
-export async function generateMetadata({
-  params,
-}: CityPageProps): Promise<Metadata> {
-  const { city } = await params;
-
-  const cityData = LOCATIONS.find((item) => item.slug === city);
-
-  if (!cityData) {
-    return {};
-  }
-
-  const availableServiceSlugs = new Set(
-    cityData.areas.flatMap((area) =>
-      getServicesForArea(cityData.slug, area.slug)
-    )
-  );
-
-  if (availableServiceSlugs.size === 0) {
-    return {
-      robots: {
-        index: false,
-        follow: false,
-      },
-    };
-  }
-
-  const serviceNames = SERVICES.filter((service) =>
-    availableServiceSlugs.has(service.slug)
-  )
-    .slice(0, 4)
-    .map((service) => service.name.toLowerCase())
-    .join(", ");
-
-  return {
-    title: `Home Services in ${cityData.name}`,
-    description:
-      `Explore ${serviceNames} and other home services available in ` +
-      `${cityData.name}. View service details, starting prices and ` +
-      `available locations.`,
-    alternates: {
-      canonical: `${BASE_URL}/${city}`,
-    },
-  };
-}
-
-export default async function CityPage({
-  params,
-}: CityPageProps) {
-  const { city } = await params;
-
-  const cityData = LOCATIONS.find((item) => item.slug === city);
-
-  if (!cityData) {
-    notFound();
-  }
-
-  const availableServiceSlugs = new Set(
-    cityData.areas.flatMap((area) =>
-      getServicesForArea(cityData.slug, area.slug)
-    )
-  );
-
-  if (availableServiceSlugs.size === 0) {
-    notFound();
-  }
-
-  const availableServices = SERVICES.filter((service) =>
-    availableServiceSlugs.has(service.slug)
-  );
-
-  const availableAreas = cityData.areas.filter(
-    (area) =>
-      getServicesForArea(cityData.slug, area.slug).length > 0
-  );
-
-  const serviceLinks = availableServices.map((service) => {
-    const firstAvailableArea = availableAreas.find((area) =>
-      getServicesForArea(cityData.slug, area.slug).includes(
-        service.slug
-      )
-    );
-
-    return {
-      service,
-      area: firstAvailableArea,
-    };
-  });
-
-  const primaryService = serviceLinks.find(
-    (item) => item.area
-  );
+  if (!activeSection) return null;
 
   return (
-    <main className="min-h-screen bg-white">
-      {/* HERO */}
-      <section className="border-b border-gray-100 py-16 md:py-20">
-        <div className="mx-auto max-w-5xl px-6 text-center">
-          <p className="text-sm font-medium text-gray-500">
-            Neoi Home Services
-          </p>
+    <main className="min-h-screen bg-white pb-24">
+      <div className="mx-auto max-w-5xl px-6 py-10">
+        {/* BACK */}
+        <Link
+          href={`/${city}`}
+          className="inline-flex items-center gap-1 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+        >
+          ← Back
+        </Link>
 
-          <h1 className="mt-3 text-4xl font-semibold tracking-tight text-gray-900 md:text-5xl">
-            Home Services in {cityData.name}
+        {/* HERO — matches SubcategoryLayout exactly */}
+        <section className="mt-6 border-b border-gray-100 pb-12">
+          <h1 className="text-3xl font-semibold text-gray-900">
+            {subcategoryData.name}
           </h1>
-
-          <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-gray-600">
-            Explore home cleaning and pest control services
-            available in selected areas of {cityData.name}.
-            View service details, pricing and availability before
-            booking.
+          <p className="mt-2 text-sm text-gray-600">
+            Choose an available service option and add it to your booking.
           </p>
 
-          {primaryService?.area && (
-            <div className="mt-8">
-              <Link
-                href={`/${city}/${primaryService.area.slug}/${primaryService.service.slug}`}
-                className="inline-flex rounded-md bg-black px-7 py-3 text-sm font-medium text-white transition hover:opacity-90"
-              >
-                Explore {primaryService.service.name}
-              </Link>
+          <div className="mt-6 grid gap-0 rounded-2xl border border-indigo-100 overflow-hidden md:grid-cols-2">
+            {/* Left panel */}
+            <div className="bg-indigo-50/40 p-8">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {subcategoryData.name}
+              </h2>
+              <p className="mt-3 text-sm text-gray-700">
+                {subcategoryData.description ||
+                  "Review the service details, available options and pricing before adding a service to your cart."}
+              </p>
+
+              <div className="mt-5 flex flex-wrap gap-2">
+                <span className="rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+                  Service details
+                </span>
+                <span className="rounded-md border border-gray-200 bg-white px-3 py-1 text-xs font-medium text-gray-700">
+                  Pricing shown before checkout
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-      </section>
 
-      {/* SERVICES */}
-      <section className="py-16 md:py-20">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-semibold text-gray-900 md:text-3xl">
-              Services Available in {cityData.name}
-            </h2>
-
-            <p className="mt-3 text-gray-600">
-              Browse the services currently available in supported
-              areas of {cityData.name}.
-            </p>
+            {/* Right panel — gradient card */}
+            <div className="relative bg-gradient-to-br from-indigo-100 via-indigo-50 to-purple-100 p-8 flex items-center justify-center min-h-[220px]">
+              <div className="text-center">
+                <div className="text-lg font-semibold text-indigo-700">
+                  {subcategoryData.name}
+                </div>
+                <div className="mt-2 h-1 w-16 bg-indigo-400/60 rounded-full mx-auto" />
+                {subcategoryData.duration && (
+                  <div className="mt-4 text-xs text-indigo-600/70">
+                    {subcategoryData.duration}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
+        </section>
 
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 md:grid-cols-3">
-            {serviceLinks.map(({ service, area }) => {
-              if (!area) return null;
-
-              return (
-                <Link
-                  key={service.slug}
-                  href={`/${city}/${area.slug}/${service.slug}`}
-                  className="rounded-xl border border-gray-200 p-6 transition hover:border-gray-400 hover:shadow-sm"
-                >
-                  <h3 className="font-medium text-gray-900">
-                    {service.name}
-                  </h3>
-
-                  <p className="mt-2 text-sm leading-6 text-gray-600">
-                    {service.description}
-                  </p>
-
-                  <p className="mt-4 text-sm font-medium text-gray-900">
-                    Starting from ₹{service.basePrice}
-                  </p>
-
-                  <span className="mt-4 inline-block text-sm font-medium text-gray-700">
-                    View service →
-                  </span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* AREAS */}
-      <section className="border-t border-gray-100 py-16 md:py-20">
-        <div className="mx-auto max-w-5xl px-6">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-2xl font-semibold text-gray-900 md:text-3xl">
-              Areas We Serve in {cityData.name}
-            </h2>
-
-            <p className="mt-3 text-gray-600">
-              Services are listed only for areas with configured
-              availability.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-5 sm:grid-cols-2 md:grid-cols-3">
-            {availableAreas.map((area) => (
-              <Link
-                key={area.slug}
-                href={`/${city}/${area.slug}`}
-                className="rounded-xl border border-gray-200 p-6 transition hover:border-gray-400 hover:shadow-sm"
+        {/* CHIPS — "What service do you need?" */}
+        <section className="border-b border-gray-100 pb-8 mt-10">
+          <h2 className="text-base font-semibold text-gray-900 mb-4">
+            What service do you need?
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {sections.map((section: any, idx: number) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveIdx(idx)}
+                className={`rounded-full border px-5 py-2 text-sm font-medium transition ${
+                  idx === activeIdx
+                    ? "border-indigo-600 bg-indigo-50 text-indigo-700"
+                    : "border-gray-200 bg-white text-gray-700 hover:border-gray-300"
+                }`}
               >
-                <h3 className="font-medium text-gray-900">
-                  Home Services in {area.name}
-                </h3>
-
-                <p className="mt-2 text-sm text-gray-500">
-                  {getServicesForArea(city, area.slug).length}{" "}
-                  service
-                  {getServicesForArea(city, area.slug).length === 1
-                    ? ""
-                    : "s"}{" "}
-                  available
-                </p>
-              </Link>
+                {section.name}
+              </button>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* SERVICE INFORMATION */}
-      <section className="border-t border-gray-100 py-16 md:py-20">
-        <div className="mx-auto max-w-4xl px-6">
-          <h2 className="text-2xl font-semibold text-gray-900">
-            Home Services in {cityData.name}
+        {/* PACKAGES — same card design */}
+        <section className="pt-10">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">
+            {activeSection.name}
           </h2>
 
-          <div className="mt-6 space-y-4 text-gray-600 leading-7">
-            <p>
-              Neoi Home Services lists residential cleaning and pest
-              control services in selected areas of {cityData.name}.
-              Service availability depends on the area and the
-              service selected.
+          {activeSection.packages.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              No packages available in this section yet.
             </p>
+          ) : (
+            <div className="space-y-4">
+              {activeSection.packages.map((pkg: any) => (
+                <div
+                  key={pkg.id}
+                  className="rounded-2xl border-2 border-indigo-100 bg-white p-6 hover:border-indigo-300 transition"
+                >
+                  <div className="flex flex-col sm:flex-row gap-6">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-lg font-semibold text-gray-900">
+                        {pkg.title}
+                      </h3>
+                      {pkg.description && (
+                        <p className="mt-1 text-sm text-gray-600">
+                          {pkg.description}
+                        </p>
+                      )}
+                      {pkg.duration && (
+                        <p className="mt-3 text-sm text-gray-500">
+                          ⏱ {pkg.duration}
+                        </p>
+                      )}
+                      {pkg.price > 0 && (
+                        <p className="mt-4 text-2xl font-bold text-gray-900">
+                          ₹{pkg.price}
+                        </p>
+                      )}
+                      <Link
+                        href={`/book?city=${city}&service=${subcategoryData.slug}&package=${pkg.id}`}
+                        className="mt-3 inline-block text-sm font-medium text-indigo-600 hover:text-indigo-700"
+                      >
+                        View Details &amp; Reviews
+                      </Link>
+                    </div>
 
-            <p>
-              Each service page provides information about the
-              service, inclusions, estimated duration and listed
-              starting price. Customers can review the available
-              details before continuing to the booking process.
-            </p>
-          </div>
-        </div>
-      </section>
+                    <div className="flex flex-col items-center sm:items-end gap-3 shrink-0 sm:w-40">
+                      {pkg.image ? (
+                        <img
+                          src={pkg.image}
+                          alt={pkg.title}
+                          className="h-24 w-32 rounded-xl object-cover"
+                        />
+                      ) : (
+                        <div className="h-24 w-32 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center text-indigo-300 text-xs">
+                          No image
+                        </div>
+                      )}
+
+                      <Link
+                        href={`/book?city=${city}&service=${subcategoryData.slug}&package=${pkg.id}`}
+                        className="w-full sm:w-32 text-center rounded-full border-2 border-indigo-200 bg-white px-4 py-2 text-sm font-semibold text-indigo-700 hover:border-indigo-500 hover:bg-indigo-50 transition"
+                      >
+                        Add
+                      </Link>
+
+                      {(pkg.optionsCount ?? 0) > 0 && (
+                        <span className="text-[11px] rounded-full px-2 py-0.5 bg-indigo-50 text-indigo-700">
+                          {pkg.optionsCount} option
+                          {pkg.optionsCount === 1 ? "" : "s"}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </div>
     </main>
+  );
+}
+
+/* ============================================================
+   PAGE
+   ============================================================ */
+
+export default function SubcategoryPage() {
+  const params = useParams<{
+    city: string;
+    category: string;
+    subcategory: string;
+  }>();
+
+  const { categories, loading } = useCategories();
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-16 text-center text-sm text-gray-500">
+        Loading…
+      </div>
+    );
+  }
+
+  /* ---------- City ---------- */
+  const cityData = LOCATIONS.find((c) => c.slug === params.city);
+  if (!cityData) {
+    return <NotFoundScreen title="City not available" />;
+  }
+
+  /* ---------- Category (from ADMIN) ---------- */
+  const categoryData = categories.find((c) => c.slug === params.category);
+  if (!categoryData) {
+    return <NotFoundScreen title="Category not found" />;
+  }
+
+  /* ---------- Subcategory (from ADMIN) ---------- */
+  const subcategoryData = categoryData.subcategories.find(
+    (s) => s.slug === params.subcategory
+  );
+  if (!subcategoryData) {
+    return <NotFoundScreen title="Service not found" />;
+  }
+
+  /* ---------- Admin chips check ---------- */
+  const adminSections = subcategoryData.sections ?? [];
+  if (adminSections.length > 0) {
+    return (
+      <ChipsLayout
+        city={params.city}
+        subcategoryData={subcategoryData}
+      />
+    );
+  }
+
+  /* ---------- Fallback: SERVICE_REGISTRY ---------- */
+  const registryData = SERVICE_REGISTRY[params.subcategory];
+
+  if (registryData?.sections?.length) {
+    return (
+      <SubcategoryLayout
+        city={params.city}
+        subcategory={subcategoryData}
+        sections={registryData.sections}
+        banner={registryData.banner}
+      />
+    );
+  }
+
+  /* ---------- Final fallback ---------- */
+  const fallbackSections = [
+    {
+      id: "default",
+      title: subcategoryData.name,
+      services: [
+        {
+          id: "default-service",
+          title: subcategoryData.name,
+          description: subcategoryData.description,
+          duration: subcategoryData.duration,
+          variants:
+            subcategoryData.variants.length > 0
+              ? subcategoryData.variants.map((v) => ({
+                  name: v.name,
+                  price: v.price,
+                }))
+              : [
+                  {
+                    name: "Standard",
+                    price: subcategoryData.basePrice,
+                  },
+                ],
+        },
+      ],
+    },
+  ];
+
+  return (
+    <SubcategoryLayout
+      city={params.city}
+      subcategory={subcategoryData}
+      sections={fallbackSections}
+      banner={undefined}
+    />
   );
 }

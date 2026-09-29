@@ -133,3 +133,20 @@ export const CATEGORIES: Category[] = [
     ],
   },
 ];
+
+
+export type ServicePackage = {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  price: number;
+  image: string;
+  optionsCount?: number;
+};
+
+export type ServiceSection = {
+  id: string;
+  name: string;
+  packages: ServicePackage[];
+};

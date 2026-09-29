@@ -30,10 +30,11 @@ const DEFAULT_CATEGORIES: Category[] = [
         basePrice: 499,
         duration: "60 min",
         variants: [
-          { id: "v1", name: "1 Bathroom", price: 499, description: "Tiles, fixtures and surfaces" },
-          { id: "v2", name: "2 Bathrooms", price: 799, description: "Tiles, fixtures and surfaces" },
-          { id: "v3", name: "3 Bathrooms", price: 1099, description: "Tiles, fixtures and surfaces" },
+          { id: "v1", name: "1 Bathroom", price: 499 },
+          { id: "v2", name: "2 Bathrooms", price: 799 },
+          { id: "v3", name: "3 Bathrooms", price: 1099 },
         ],
+        sections: [],
       },
       {
         id: "s2",
@@ -44,9 +45,10 @@ const DEFAULT_CATEGORIES: Category[] = [
         basePrice: 999,
         duration: "90 min",
         variants: [
-          { id: "v4", name: "Standard Kitchen", price: 999, description: "Counters, chimney, sink" },
-          { id: "v5", name: "Deep Kitchen", price: 1499, description: "Includes chimney degreasing" },
+          { id: "v4", name: "Standard Kitchen", price: 999 },
+          { id: "v5", name: "Deep Kitchen", price: 1499 },
         ],
+        sections: [],
       },
       {
         id: "s3",
@@ -61,6 +63,62 @@ const DEFAULT_CATEGORIES: Category[] = [
           { id: "v7", name: "2 BHK", price: 3499 },
           { id: "v8", name: "3 BHK", price: 4499 },
         ],
+        sections: [
+          {
+            id: "sec1",
+            name: "Apartment",
+            packages: [
+              {
+                id: "pkg1",
+                title: "Furnished Apartment Cleaning",
+                description: "Complete cleaning for occupied furnished apartments.",
+                duration: "2-3 hours",
+                price: 1799,
+                image: "",
+                optionsCount: 3,
+              },
+              {
+                id: "pkg2",
+                title: "Unfurnished Apartment Cleaning",
+                description: "Deep cleaning for empty apartments before move-in.",
+                duration: "2 hours",
+                price: 1299,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+          {
+            id: "sec2",
+            name: "Villa",
+            packages: [
+              {
+                id: "pkg3",
+                title: "Villa Deep Cleaning",
+                description: "Complete villa cleaning with exterior surfaces.",
+                duration: "4-5 hours",
+                price: 3499,
+                image: "",
+                optionsCount: 3,
+              },
+            ],
+          },
+          {
+            id: "sec3",
+            name: "Post Construction",
+            packages: [
+              {
+                id: "pkg4",
+                title: "Post Construction Cleaning",
+                description: "Removes paint stains, cement marks and debris.",
+                duration: "5 hours",
+                price: 4499,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+        ],
       },
       {
         id: "s4",
@@ -74,6 +132,7 @@ const DEFAULT_CATEGORIES: Category[] = [
           { id: "v9", name: "1 Seater", price: 599 },
           { id: "v10", name: "3 Seater", price: 1199 },
         ],
+        sections: [],
       },
     ],
   },
@@ -96,6 +155,7 @@ const DEFAULT_CATEGORIES: Category[] = [
           { id: "v11", name: "1 BHK", price: 699 },
           { id: "v12", name: "2 BHK", price: 999 },
         ],
+        sections: [],
       },
       {
         id: "s6",
@@ -108,6 +168,124 @@ const DEFAULT_CATEGORIES: Category[] = [
         variants: [
           { id: "v13", name: "Basic (1 year warranty)", price: 2999 },
           { id: "v14", name: "Extended (3 year warranty)", price: 5499 },
+        ],
+        sections: [],
+      },
+    ],
+  },
+  {
+    id: "3",
+    name: "Painting",
+    slug: "painting",
+    image: "/icons/paint-roller.png",
+    active: true,
+    subcategories: [
+      {
+        id: "s7",
+        name: "Interior Wall Painting",
+        slug: "interior-wall-painting",
+        image: "/icons/painting.png",
+        description: "Interior wall painting with premium emulsion",
+        basePrice: 15000,
+        duration: "2-4 days",
+        variants: [],
+        sections: [
+          {
+            id: "sec-1bhk",
+            name: "1 BHK",
+            packages: [
+              {
+                id: "pkg-1bhk-basic",
+                title: "1 BHK Basic Painting",
+                description: "2 coats of emulsion paint on all interior walls.",
+                duration: "2 days",
+                price: 15000,
+                image: "",
+                optionsCount: 2,
+              },
+              {
+                id: "pkg-1bhk-premium",
+                title: "1 BHK Premium Painting",
+                description: "2 coats of premium emulsion + primer.",
+                duration: "3 days",
+                price: 22000,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+          {
+            id: "sec-2bhk",
+            name: "2 BHK",
+            packages: [
+              {
+                id: "pkg-2bhk-basic",
+                title: "2 BHK Basic Painting",
+                description: "2 coats of emulsion paint on all interior walls.",
+                duration: "3 days",
+                price: 24000,
+                image: "",
+                optionsCount: 2,
+              },
+              {
+                id: "pkg-2bhk-premium",
+                title: "2 BHK Premium Painting",
+                description: "2 coats of premium emulsion + primer.",
+                duration: "4 days",
+                price: 34000,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+          {
+            id: "sec-3bhk",
+            name: "3 BHK",
+            packages: [
+              {
+                id: "pkg-3bhk-basic",
+                title: "3 BHK Basic Painting",
+                description: "2 coats of emulsion paint on all interior walls.",
+                duration: "4 days",
+                price: 32000,
+                image: "",
+                optionsCount: 2,
+              },
+              {
+                id: "pkg-3bhk-premium",
+                title: "3 BHK Premium Painting",
+                description: "2 coats of premium emulsion + primer.",
+                duration: "5 days",
+                price: 44000,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+          {
+            id: "sec-villa",
+            name: "Villa",
+            packages: [
+              {
+                id: "pkg-villa-interior",
+                title: "Villa Interior Painting",
+                description: "Complete interior painting with premium finish.",
+                duration: "6 days",
+                price: 65000,
+                image: "",
+                optionsCount: 3,
+              },
+              {
+                id: "pkg-villa-full",
+                title: "Villa Full Painting",
+                description: "Interior + exterior with weatherproof paint.",
+                duration: "10 days",
+                price: 110000,
+                image: "",
+                optionsCount: 3,
+              },
+            ],
+          },
         ],
       },
     ],
@@ -132,6 +310,17 @@ type Ctx = {
 
 const CategoriesContext = createContext<Ctx | undefined>(undefined);
 
+function normalize(cats: Category[]): Category[] {
+  return cats.map((c) => ({
+    ...c,
+    subcategories: (c.subcategories ?? []).map((s) => ({
+      ...s,
+      variants: s.variants ?? [],
+      sections: s.sections ?? [],
+    })),
+  }));
+}
+
 export function CategoriesProvider({
   children,
 }: {
@@ -145,7 +334,7 @@ export function CategoriesProvider({
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
-        setCategories(JSON.parse(stored));
+        setCategories(normalize(JSON.parse(stored)));
       } catch {}
     }
     setLoading(false);
@@ -161,7 +350,7 @@ export function CategoriesProvider({
     const handler = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {
         try {
-          setCategories(JSON.parse(e.newValue));
+          setCategories(normalize(JSON.parse(e.newValue)));
         } catch {}
       }
     };
@@ -204,7 +393,12 @@ export function CategoriesProvider({
                 ...c,
                 subcategories: [
                   ...c.subcategories,
-                  { ...sub, id: Date.now().toString() },
+                  {
+                    ...sub,
+                    id: Date.now().toString(),
+                    variants: sub.variants ?? [],
+                    sections: sub.sections ?? [],
+                  },
                 ],
               }
             : c

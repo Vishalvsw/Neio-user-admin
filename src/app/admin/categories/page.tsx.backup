@@ -9,8 +9,6 @@ import type {
   Category,
   SubCategory,
   ServiceVariant,
-  ServiceSection,
-  ServicePackage,
 } from "@/lib/categories";
 import {
   Plus,
@@ -21,7 +19,6 @@ import {
   XCircle,
   UploadCloud,
   FolderTree,
-  Layers,
 } from "lucide-react";
 
 const inputClass =
@@ -115,7 +112,7 @@ function Drawer({
         onClick={onClose}
       />
       <div
-        className={`fixed right-0 top-0 z-50 h-full w-full max-w-2xl bg-white shadow-2xl transition-transform duration-300 ${
+        className={`fixed right-0 top-0 z-50 h-full w-full max-w-xl bg-white shadow-2xl transition-transform duration-300 ${
           open ? "translate-x-0" : "translate-x-full"
         }`}
       >
@@ -170,7 +167,6 @@ export default function AdminCategoriesPage() {
   const [editingSub, setEditingSub] = useState<SubCategory | null>(null);
   const [subForm, setSubForm] = useState(EMPTY_SUB_FORM);
   const [variants, setVariants] = useState<ServiceVariant[]>([]);
-  const [sections, setSections] = useState<ServiceSection[]>([]);
 
   /* ---------------- Category handlers ---------------- */
 
@@ -206,18 +202,18 @@ export default function AdminCategoriesPage() {
 
   /* ---------------- Subcategory handlers ---------------- */
 
+  /* FIX: only sets the drawer target — no reset race */
   const openSubDrawer = (categoryId: string) => {
     setSubForm(EMPTY_SUB_FORM);
     setVariants([]);
-    setSections([]);
     setEditingSub(null);
     setSubDrawerFor(categoryId);
   };
 
+  /* FIX: closes the drawer and clears form */
   const closeSubDrawer = () => {
     setSubForm(EMPTY_SUB_FORM);
     setVariants([]);
-    setSections([]);
     setEditingSub(null);
     setSubDrawerFor(null);
   };
@@ -225,15 +221,25 @@ export default function AdminCategoriesPage() {
   const handleSubSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    console.log("═══ handleSubSubmit FIRED ═══");
+    console.log("  subDrawerFor:", subDrawerFor);
+    console.log("  subForm.name:", subForm.name);
+    console.log("  subForm.slug:", subForm.slug);
+    console.log("  editingSub:", editingSub);
+    console.log("  variants:", variants);
+
     if (!subDrawerFor) {
-      alert("Error: no category selected.");
+      console.error("❌ Missing subDrawerFor (category ID)");
+      alert("Error: no category selected. Please close and try again.");
       return;
     }
     if (!subForm.name) {
+      console.error("❌ Missing service name");
       alert("Please enter a Service Name.");
       return;
     }
     if (!subForm.slug) {
+      console.error("❌ Missing service slug");
       alert("Please enter a Slug.");
       return;
     }
@@ -246,13 +252,9 @@ export default function AdminCategoriesPage() {
       basePrice: subForm.basePrice,
       duration: subForm.duration,
       variants: variants.filter((v) => v.name.trim() && v.price > 0),
-      sections: sections
-        .filter((s) => s.name.trim())
-        .map((s) => ({
-          ...s,
-          packages: s.packages.filter((p) => p.title.trim()),
-        })),
     };
+
+    console.log("✅ Saving payload:", payload);
 
     if (editingSub) {
       updateSubcategory(subDrawerFor, editingSub.id, payload);
@@ -275,7 +277,6 @@ export default function AdminCategoriesPage() {
       duration: s.duration ?? "",
     });
     setVariants(s.variants ?? []);
-    setSections(s.sections ?? []);
   };
 
   /* ---------------- Variant handlers ---------------- */
@@ -295,78 +296,6 @@ export default function AdminCategoriesPage() {
 
   const removeVariant = (id: string) => {
     setVariants((prev) => prev.filter((v) => v.id !== id));
-  };
-
-  /* ---------------- Section handlers ---------------- */
-
-  const addSection = () => {
-    setSections((prev) => [
-      ...prev,
-      { id: Date.now().toString(), name: "", packages: [] },
-    ]);
-  };
-
-  const updateSection = (id: string, patch: Partial<ServiceSection>) => {
-    setSections((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
-    );
-  };
-
-  const removeSection = (id: string) => {
-    setSections((prev) => prev.filter((s) => s.id !== id));
-  };
-
-  const addPackage = (sectionId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              packages: [
-                ...s.packages,
-                {
-                  id: Date.now().toString(),
-                  title: "",
-                  description: "",
-                  duration: "",
-                  price: 0,
-                  image: "",
-                  optionsCount: 0,
-                },
-              ],
-            }
-          : s
-      )
-    );
-  };
-
-  const updatePackage = (
-    sectionId: string,
-    pkgId: string,
-    patch: Partial<ServicePackage>
-  ) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? {
-              ...s,
-              packages: s.packages.map((p) =>
-                p.id === pkgId ? { ...p, ...patch } : p
-              ),
-            }
-          : s
-      )
-    );
-  };
-
-  const removePackage = (sectionId: string, pkgId: string) => {
-    setSections((prev) =>
-      prev.map((s) =>
-        s.id === sectionId
-          ? { ...s, packages: s.packages.filter((p) => p.id !== pkgId) }
-          : s
-      )
-    );
   };
 
   /* ---------------- Render ---------------- */
@@ -517,10 +446,15 @@ export default function AdminCategoriesPage() {
                               <span className="text-xs text-gray-700 truncate block">
                                 {sub.name}
                               </span>
-                              <span className="text-[10px] text-gray-500">
-                                {sub.sections?.length ?? 0} chips ·{" "}
-                                {sub.variants?.length ?? 0} variants
-                              </span>
+                              {sub.basePrice > 0 && (
+                                <span className="text-[10px] text-gray-500">
+                                  ₹{sub.basePrice}
+                                  {sub.variants.length > 0 &&
+                                    ` · ${sub.variants.length} option${
+                                      sub.variants.length === 1 ? "" : "s"
+                                    }`}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
@@ -590,7 +524,7 @@ export default function AdminCategoriesPage() {
                       : catForm.slug,
                 })
               }
-              placeholder="e.g., Painting"
+              placeholder="e.g., Cleaning"
               className={inputClass}
             />
           </div>
@@ -611,7 +545,7 @@ export default function AdminCategoriesPage() {
                     .replace(/[^a-z0-9-]/g, ""),
                 })
               }
-              placeholder="painting"
+              placeholder="cleaning"
               className={`${inputClass} font-mono`}
             />
           </div>
@@ -667,7 +601,7 @@ export default function AdminCategoriesPage() {
                     slug: editingSub ? subForm.slug : autoSlug,
                   });
                 }}
-                placeholder="Wall Painting"
+                placeholder="Bathroom Cleaning"
                 className={inputClass}
               />
             </div>
@@ -688,7 +622,7 @@ export default function AdminCategoriesPage() {
                       .replace(/[^a-z0-9-]/g, ""),
                   })
                 }
-                placeholder="wall-painting"
+                placeholder="bathroom-cleaning"
                 className={`${inputClass} font-mono`}
               />
             </div>
@@ -720,7 +654,7 @@ export default function AdminCategoriesPage() {
                 onChange={(e) =>
                   setSubForm({ ...subForm, duration: e.target.value })
                 }
-                placeholder="e.g., 2-4 days"
+                placeholder="e.g., 60 min"
                 className={inputClass}
               />
             </div>
@@ -739,7 +673,7 @@ export default function AdminCategoriesPage() {
                   description: e.target.value,
                 })
               }
-              placeholder="Interior wall painting with premium emulsion"
+              placeholder="Tiles, fixtures and surfaces"
               className={`${inputClass} resize-none`}
             />
           </div>
@@ -750,167 +684,15 @@ export default function AdminCategoriesPage() {
             onChange={(url) => setSubForm((f) => ({ ...f, image: url }))}
           />
 
-          {/* ============ CHIPS: What service do you need? ============ */}
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/40 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div>
-                <h4 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                  <Layers size={14} />
-                  "What service do you need?" Chips
-                </h4>
-                <p className="text-xs text-gray-500">
-                  Add property types (Apartment, Villa, etc.). Each holds its
-                  own packages.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={addSection}
-                className="inline-flex items-center gap-1 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
-              >
-                <Plus size={12} /> Add Chip
-              </button>
-            </div>
-
-            {sections.length === 0 && (
-              <p className="py-4 text-center text-xs text-gray-400">
-                No chips yet. Add at least one (e.g., "1 BHK").
-              </p>
-            )}
-
-            <div className="space-y-3">
-              {sections.map((section) => (
-                <div
-                  key={section.id}
-                  className="rounded-lg border border-gray-200 bg-white p-3"
-                >
-                  <div className="flex items-center gap-2 mb-3">
-                    <input
-                      className={inputClass}
-                      placeholder="Chip name (e.g., 1 BHK)"
-                      value={section.name}
-                      onChange={(e) =>
-                        updateSection(section.id, { name: e.target.value })
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => removeSection(section.id)}
-                      className="rounded p-2 text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-
-                  <div className="pl-4 border-l-2 border-indigo-100">
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] uppercase tracking-wide text-gray-400">
-                        Packages in this chip
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => addPackage(section.id)}
-                        className="text-xs text-indigo-600 hover:underline font-medium"
-                      >
-                        + Add package
-                      </button>
-                    </div>
-
-                    {section.packages.length === 0 && (
-                      <p className="text-xs text-gray-400 py-2">
-                        No packages yet.
-                      </p>
-                    )}
-
-                    <div className="space-y-2">
-                      {section.packages.map((pkg) => (
-                        <div
-                          key={pkg.id}
-                          className="rounded-md border border-gray-100 bg-gray-50 p-2 space-y-2"
-                        >
-                          <div className="flex gap-2">
-                            <input
-                              className={`${inputClass} flex-1`}
-                              placeholder="Package title"
-                              value={pkg.title}
-                              onChange={(e) =>
-                                updatePackage(section.id, pkg.id, {
-                                  title: e.target.value,
-                                })
-                              }
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              className={`${inputClass} w-24`}
-                              placeholder="₹"
-                              value={pkg.price}
-                              onChange={(e) =>
-                                updatePackage(section.id, pkg.id, {
-                                  price: Number(e.target.value),
-                                })
-                              }
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removePackage(section.id, pkg.id)}
-                              className="rounded p-1 text-red-600 hover:bg-red-50"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          </div>
-                          <div className="flex gap-2">
-                            <input
-                              className={`${inputClass} flex-1`}
-                              placeholder="Description"
-                              value={pkg.description}
-                              onChange={(e) =>
-                                updatePackage(section.id, pkg.id, {
-                                  description: e.target.value,
-                                })
-                              }
-                            />
-                            <input
-                              className={`${inputClass} w-32`}
-                              placeholder="Duration"
-                              value={pkg.duration}
-                              onChange={(e) =>
-                                updatePackage(section.id, pkg.id, {
-                                  duration: e.target.value,
-                                })
-                              }
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              className={`${inputClass} w-24`}
-                              placeholder="Options"
-                              value={pkg.optionsCount ?? 0}
-                              onChange={(e) =>
-                                updatePackage(section.id, pkg.id, {
-                                  optionsCount: Number(e.target.value),
-                                })
-                              }
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ============ VARIANTS (existing) ============ */}
+          {/* VARIANTS */}
           <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <div>
                 <h4 className="text-sm font-semibold text-gray-900">
-                  Service Variants (optional)
+                  Service Options / Variants
                 </h4>
                 <p className="text-xs text-gray-500">
-                  Simple quantity-based options like "1 Bathroom ₹499".
+                  e.g., "1 Bathroom ₹499", "2 Bathrooms ₹799"
                 </p>
               </div>
               <button
@@ -918,13 +700,13 @@ export default function AdminCategoriesPage() {
                 onClick={addVariant}
                 className="inline-flex items-center gap-1 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50"
               >
-                <Plus size={12} /> Add Variant
+                <Plus size={12} /> Add Option
               </button>
             </div>
 
             {variants.length === 0 && (
               <p className="py-4 text-center text-xs text-gray-400">
-                No variants. (OK — chips can replace these.)
+                No options yet. Add at least one.
               </p>
             )}
 
@@ -936,7 +718,7 @@ export default function AdminCategoriesPage() {
                 >
                   <input
                     className={`${inputClass} col-span-5`}
-                    placeholder="Name"
+                    placeholder="Option name (e.g., 1 Bathroom)"
                     value={v.name}
                     onChange={(e) =>
                       updateVariant(v.id, { name: e.target.value })
@@ -949,15 +731,19 @@ export default function AdminCategoriesPage() {
                     placeholder="Price"
                     value={v.price}
                     onChange={(e) =>
-                      updateVariant(v.id, { price: Number(e.target.value) })
+                      updateVariant(v.id, {
+                        price: Number(e.target.value),
+                      })
                     }
                   />
                   <input
                     className={`${inputClass} col-span-3`}
-                    placeholder="Note"
+                    placeholder="Note (optional)"
                     value={v.description ?? ""}
                     onChange={(e) =>
-                      updateVariant(v.id, { description: e.target.value })
+                      updateVariant(v.id, {
+                        description: e.target.value,
+                      })
                     }
                   />
                   <button
