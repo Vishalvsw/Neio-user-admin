@@ -1,12 +1,26 @@
 // src/lib/categories.ts
 
-/* ---------- Types ---------- */
-
 export type ServiceVariant = {
   id: string;
-  name: string;         // e.g., "1 Bathroom"
-  price: number;        // 499
-  description?: string; // e.g., "Tiles, fixtures and surfaces"
+  name: string;
+  price: number;
+  description?: string;
+};
+
+export type ServicePackage = {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  price: number;
+  image: string;
+  optionsCount?: number;
+};
+
+export type ServiceSection = {
+  id: string;
+  name: string;
+  packages: ServicePackage[];
 };
 
 export type SubCategory = {
@@ -18,6 +32,8 @@ export type SubCategory = {
   basePrice: number;
   duration: string;
   variants: ServiceVariant[];
+  sections: ServiceSection[];
+  banner?: string;
 };
 
 export type Category = {
@@ -28,10 +44,6 @@ export type Category = {
   active: boolean;
   subcategories: SubCategory[];
 };
-
-/* ---------- Static fallback list ---------- */
-/* Legacy pages that import CATEGORIES still work.
-   The admin panel controls the real list via CategoriesContext. */
 
 export const CATEGORIES: Category[] = [
   {
@@ -54,6 +66,7 @@ export const CATEGORIES: Category[] = [
           { id: "v2", name: "2 BHK", price: 3499 },
           { id: "v3", name: "3 BHK", price: 4499 },
         ],
+        sections: [],
       },
       {
         id: "s2",
@@ -68,6 +81,7 @@ export const CATEGORIES: Category[] = [
           { id: "v5", name: "2 Bathrooms", price: 799 },
           { id: "v6", name: "3 Bathrooms", price: 1099 },
         ],
+        sections: [],
       },
       {
         id: "s3",
@@ -81,6 +95,7 @@ export const CATEGORIES: Category[] = [
           { id: "v7", name: "Standard", price: 999 },
           { id: "v8", name: "Deep Clean", price: 1499 },
         ],
+        sections: [],
       },
       {
         id: "s4",
@@ -94,6 +109,7 @@ export const CATEGORIES: Category[] = [
           { id: "v9", name: "1 Seater", price: 599 },
           { id: "v10", name: "3 Seater", price: 1199 },
         ],
+        sections: [],
       },
     ],
   },
@@ -116,6 +132,7 @@ export const CATEGORIES: Category[] = [
           { id: "v11", name: "1 BHK", price: 699 },
           { id: "v12", name: "2 BHK", price: 999 },
         ],
+        sections: [],
       },
       {
         id: "s6",
@@ -129,24 +146,59 @@ export const CATEGORIES: Category[] = [
           { id: "v13", name: "Basic (1 year)", price: 2999 },
           { id: "v14", name: "Extended (3 year)", price: 5499 },
         ],
+        sections: [],
+      },
+    ],
+  },
+  {
+    id: "3",
+    name: "Painting",
+    slug: "painting",
+    image: "",
+    active: true,
+    subcategories: [
+      {
+        id: "s7",
+        name: "Interior Wall Painting",
+        slug: "interior-wall-painting",
+        image: "",
+        description: "Interior wall painting with premium emulsion",
+        basePrice: 15000,
+        duration: "2-4 days",
+        variants: [],
+        sections: [
+          {
+            id: "sec-1bhk",
+            name: "1 BHK",
+            packages: [
+              {
+                id: "pkg-1bhk-basic",
+                title: "1 BHK Basic Painting",
+                description: "2 coats of emulsion paint on all interior walls.",
+                duration: "2 days",
+                price: 15000,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+          {
+            id: "sec-2bhk",
+            name: "2 BHK",
+            packages: [
+              {
+                id: "pkg-2bhk-basic",
+                title: "2 BHK Basic Painting",
+                description: "2 coats of emulsion paint on all interior walls.",
+                duration: "3 days",
+                price: 24000,
+                image: "",
+                optionsCount: 2,
+              },
+            ],
+          },
+        ],
       },
     ],
   },
 ];
-
-
-export type ServicePackage = {
-  id: string;
-  title: string;
-  description: string;
-  duration: string;
-  price: number;
-  image: string;
-  optionsCount?: number;
-};
-
-export type ServiceSection = {
-  id: string;
-  name: string;
-  packages: ServicePackage[];
-};

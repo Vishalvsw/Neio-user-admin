@@ -13,11 +13,7 @@ import {
   XCircle,
   X,
   UploadCloud,
-  Link as LinkIcon,
-  ImageIcon,
 } from "lucide-react";
-
-type ImageMode = "url" | "upload";
 
 export default function BannersPage() {
   const { banners, addBanner, updateBanner, deleteBanner, toggleBannerStatus } =
@@ -29,7 +25,6 @@ export default function BannersPage() {
 
   // Form state
   const [form, setForm] = useState({ title: "", image: "", link: "" });
-  const [imageMode, setImageMode] = useState<ImageMode>("url");
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -41,7 +36,7 @@ export default function BannersPage() {
     e.preventDefault();
 
     if (!form.image) {
-      setUploadError("Please provide an image (URL or upload).");
+      setUploadError("Please upload a banner image.");
       return;
     }
 
@@ -57,7 +52,6 @@ export default function BannersPage() {
     setForm({ title: "", image: "", link: "" });
     setEditing(null);
     setShowForm(false);
-    setImageMode("url");
     setUploadError(null);
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -66,28 +60,23 @@ export default function BannersPage() {
   const startEdit = (b: Banner) => {
     setEditing(b);
     setForm({ title: b.title, image: b.image, link: b.link });
-
-    // Detect if the existing image is a base64 upload or a URL
-    setImageMode(b.image.startsWith("data:") ? "upload" : "url");
     setShowForm(true);
   };
 
-  /* ---------- File Upload Handling ---------- */
+  /* ---------- File Upload with Compression ---------- */
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setUploadError(null);
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate type
     if (!file.type.startsWith("image/")) {
       setUploadError("Please select a valid image file (PNG, JPG, WEBP).");
       return;
     }
 
-    // Validate size (max 2MB to keep localStorage happy)
-    if (file.size > 2 * 1024 * 1024) {
-      setUploadError("Image is too large. Max size is 2MB.");
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError("File too large. Max 10MB original.");
       return;
     }
 
@@ -95,8 +84,50 @@ export default function BannersPage() {
 
     const reader = new FileReader();
     reader.onload = () => {
-      setForm((prev) => ({ ...prev, image: reader.result as string }));
-      setUploading(false);
+      const img = new window.Image();
+      img.onload = () => {
+        // Downscale to max 1600px on the long edge
+        const MAX_DIM = 1600;
+        const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          setUploadError("Canvas not supported.");
+          setUploading(false);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, w, h);
+
+        const compressed = canvas.toDataURL("image/jpeg", 0.8);
+        const sizeKB = Math.round(compressed.length / 1024);
+
+        console.log(
+          `🎨 Banner compressed: ${img.width}×${img.height} → ${w}×${h}, ${sizeKB} KB`
+        );
+
+        if (sizeKB > 500) {
+          setUploadError(
+            `Image is ${sizeKB}KB after compression. Please use a smaller/simpler image.`
+          );
+          setUploading(false);
+          return;
+        }
+
+        setForm((prev) => ({ ...prev, image: compressed }));
+        setUploading(false);
+      };
+      img.onerror = () => {
+        setUploadError("Failed to read the image.");
+        setUploading(false);
+      };
+      img.src = reader.result as string;
     };
     reader.onerror = () => {
       setUploadError("Failed to read the file. Try again.");
@@ -156,104 +187,96 @@ export default function BannersPage() {
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="grid gap-4 sm:grid-cols-3">
-                {/* Title */}
-                <div className="sm:col-span-1">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Banner Title
-                  </label>
-                  <input
-                    required
-                    placeholder="e.g., Summer Sale"
-                    value={form.title}
-                    onChange={(e) =>
-                      setForm({ ...form, title: e.target.value })
-                    }
-                    className="w-full rounded-lg border p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {/* Title */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Banner Title
+                    </label>
+                    <input
+                      required
+                      placeholder="e.g., Summer Sale"
+                      value={form.title}
+                      onChange={(e) =>
+                        setForm({ ...form, title: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
+                  </div>
 
-                {/* Link */}
-                <div className="sm:col-span-1">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Redirect Link
-                  </label>
-                  <input
-                    required
-                    placeholder="/offers/summer"
-                    value={form.link}
-                    onChange={(e) =>
-                      setForm({ ...form, link: e.target.value })
-                    }
-                    className="w-full rounded-lg border p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                  />
-                </div>
-
-                {/* Image Mode Toggle */}
-                <div className="sm:col-span-1">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Image Source
-                  </label>
-                  <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImageMode("url");
-                        setUploadError(null);
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                        imageMode === "url"
-                          ? "bg-white text-indigo-600 shadow-sm"
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                    >
-                      <LinkIcon size={14} /> URL
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setImageMode("upload");
-                        setUploadError(null);
-                      }}
-                      className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                        imageMode === "upload"
-                          ? "bg-white text-indigo-600 shadow-sm"
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                    >
-                      <UploadCloud size={14} /> Upload
-                    </button>
+                  {/* Link */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Redirect Link (optional)
+                    </label>
+                    <input
+                      placeholder="/offers/summer"
+                      value={form.link}
+                      onChange={(e) =>
+                        setForm({ ...form, link: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-gray-300 p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                    />
                   </div>
                 </div>
 
-                {/* Conditional Image Input */}
-                <div className="sm:col-span-3">
+                {/* Image Upload */}
+                <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
-                    {imageMode === "url" ? "Image URL" : "Upload from Device"}
+                    Banner Image
                   </label>
 
-                  {imageMode === "url" ? (
-                    <input
-                      type="text"
-                      placeholder="/images/banner.png  or  https://cdn.example.com/banner.jpg"
-                      value={form.image.startsWith("data:") ? "" : form.image}
-                      onChange={(e) =>
-                        setForm({ ...form, image: e.target.value })
-                      }
-                      className="w-full rounded-lg border p-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                    />
-                  ) : (
-                    <div>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/png,image/jpeg,image/jpg,image/webp"
-                        onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-600 file:mr-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white hover:file:bg-indigo-700 file:cursor-pointer"
-                      />
-                      <p className="mt-1 text-[11px] text-gray-500">
-                        PNG, JPG or WEBP. Max 2MB.
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+
+                  {!form.image ? (
+                    <label
+                      htmlFor="banner-file-upload"
+                      className="flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 px-6 py-10 cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <UploadCloud size={28} className="text-indigo-600" />
+                      <p className="text-sm font-medium text-gray-700">
+                        Click to upload a banner image
                       </p>
+                      <p className="text-xs text-gray-500">
+                        PNG, JPG or WEBP. Images are auto-compressed.
+                      </p>
+                    </label>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="relative overflow-hidden rounded-lg border border-gray-200">
+                        <img
+                          src={form.image}
+                          alt="Banner preview"
+                          className="w-full max-h-52 object-cover"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          <UploadCloud size={12} /> Replace
+                        </button>
+                        <button
+                          type="button"
+                          onClick={clearImage}
+                          className="inline-flex items-center gap-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-100"
+                        >
+                          <X size={12} /> Remove
+                        </button>
+                        <span className="text-[11px] text-gray-500">
+                          {Math.round((form.image.length || 0) / 1024)} KB
+                        </span>
+                      </div>
                     </div>
                   )}
 
@@ -263,46 +286,16 @@ export default function BannersPage() {
 
                   {uploading && (
                     <p className="mt-2 text-xs text-indigo-600">
-                      Processing image…
+                      Compressing image…
                     </p>
-                  )}
-
-                  {/* Live Preview */}
-                  {form.image && (
-                    <div className="mt-3 flex items-start gap-3">
-                      <div className="relative h-20 w-32 overflow-hidden rounded-lg border border-gray-200 bg-gray-50">
-                        <img
-                          src={form.image}
-                          alt="Banner preview"
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <p className="text-xs font-medium text-gray-700">
-                          Preview
-                        </p>
-                        <p className="text-[11px] text-gray-500 truncate max-w-xs">
-                          {form.image.startsWith("data:")
-                            ? "Local upload (base64)"
-                            : form.image}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={clearImage}
-                          className="mt-1 inline-flex w-fit items-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-100"
-                        >
-                          <X size={12} /> Remove image
-                        </button>
-                      </div>
-                    </div>
                   )}
                 </div>
 
                 {/* Actions */}
-                <div className="sm:col-span-3 flex gap-3 pt-2">
+                <div className="flex gap-3 pt-2 border-t">
                   <button
                     type="submit"
-                    disabled={uploading}
+                    disabled={uploading || !form.image}
                     className="rounded-lg bg-indigo-600 px-4 py-2 text-sm text-white font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {editing ? "Update Banner" : "Create Banner"}
@@ -328,7 +321,6 @@ export default function BannersPage() {
                     <th className="px-5 py-3">Preview</th>
                     <th className="px-5 py-3">Title</th>
                     <th className="px-5 py-3">Link</th>
-                    <th className="px-5 py-3">Source</th>
                     <th className="px-5 py-3">Status</th>
                     <th className="px-5 py-3 text-right">Actions</th>
                   </tr>
@@ -347,26 +339,7 @@ export default function BannersPage() {
                         {b.title}
                       </td>
                       <td className="px-5 py-4 text-sm text-gray-600 font-mono truncate max-w-[200px]">
-                        {b.link}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                            b.image.startsWith("data:")
-                              ? "bg-purple-50 text-purple-700"
-                              : "bg-blue-50 text-blue-700"
-                          }`}
-                        >
-                          {b.image.startsWith("data:") ? (
-                            <>
-                              <UploadCloud size={11} /> Uploaded
-                            </>
-                          ) : (
-                            <>
-                              <LinkIcon size={11} /> URL
-                            </>
-                          )}
-                        </span>
+                        {b.link || <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-5 py-4">
                         <button
@@ -408,7 +381,7 @@ export default function BannersPage() {
                   {banners.length === 0 && (
                     <tr>
                       <td
-                        colSpan={6}
+                        colSpan={5}
                         className="px-5 py-10 text-center text-sm text-gray-500"
                       >
                         No banners yet. Click &quot;Add Banner&quot; to create
